@@ -12,7 +12,7 @@ import (
 )
 
 func TestManager(t *testing.T) {
-	Convey("Manager test", t, func() {
+	Convey("Manager test", t, func(c C) {
 		manager := manage.NewDefaultManager()
 
 		manager.MustTokenStorage(store.NewMemoryTokenStore())
@@ -32,24 +32,24 @@ func TestManager(t *testing.T) {
 			Scope:       "all",
 		}
 
-		Convey("GetClient test", func() {
+		c.Convey("GetClient test", func(c C) {
 			cli, err := manager.GetClient("1")
-			So(err, ShouldBeNil)
-			So(cli.GetSecret(), ShouldEqual, "11")
+			c.So(err, ShouldBeNil)
+			c.So(cli.GetSecret(), ShouldEqual, "11")
 		})
 
-		Convey("Token test", func() {
-			testManager(tgr, manager)
+		c.Convey("Token test", func(c C) {
+			testManager(tgr, manager, c)
 		})
 	})
 }
 
-func testManager(tgr *oauth2.TokenGenerateRequest, manager oauth2.Manager) {
+func testManager(tgr *oauth2.TokenGenerateRequest, manager oauth2.Manager, c C) {
 	cti, err := manager.GenerateAuthToken(oauth2.Code, tgr)
-	So(err, ShouldBeNil)
+	c.So(err, ShouldBeNil)
 
 	code := cti.GetCode()
-	So(code, ShouldNotBeEmpty)
+	c.So(code, ShouldNotBeEmpty)
 
 	atParams := &oauth2.TokenGenerateRequest{
 		ClientID:     tgr.ClientID,
@@ -58,52 +58,52 @@ func testManager(tgr *oauth2.TokenGenerateRequest, manager oauth2.Manager) {
 		Code:         code,
 	}
 	ati, err := manager.GenerateAccessToken(oauth2.AuthorizationCode, atParams)
-	So(err, ShouldBeNil)
+	c.So(err, ShouldBeNil)
 
 	accessToken, refreshToken := ati.GetAccess(), ati.GetRefresh()
-	So(accessToken, ShouldNotBeEmpty)
-	So(refreshToken, ShouldNotBeEmpty)
+	c.So(accessToken, ShouldNotBeEmpty)
+	c.So(refreshToken, ShouldNotBeEmpty)
 
 	ainfo, err := manager.LoadAccessToken(accessToken)
-	So(err, ShouldBeNil)
-	So(ainfo.GetClientID(), ShouldEqual, atParams.ClientID)
+	c.So(err, ShouldBeNil)
+	c.So(ainfo.GetClientID(), ShouldEqual, atParams.ClientID)
 
 	arinfo, err := manager.LoadRefreshToken(accessToken)
-	So(err, ShouldNotBeNil)
-	So(arinfo, ShouldBeNil)
+	c.So(err, ShouldNotBeNil)
+	c.So(arinfo, ShouldBeNil)
 
 	rainfo, err := manager.LoadAccessToken(refreshToken)
-	So(err, ShouldNotBeNil)
-	So(rainfo, ShouldBeNil)
+	c.So(err, ShouldNotBeNil)
+	c.So(rainfo, ShouldBeNil)
 
 	rinfo, err := manager.LoadRefreshToken(refreshToken)
-	So(err, ShouldBeNil)
-	So(rinfo.GetClientID(), ShouldEqual, atParams.ClientID)
+	c.So(err, ShouldBeNil)
+	c.So(rinfo.GetClientID(), ShouldEqual, atParams.ClientID)
 
 	atParams.Refresh = refreshToken
 	atParams.Scope = "owner"
 	rti, err := manager.RefreshAccessToken(atParams)
-	So(err, ShouldBeNil)
+	c.So(err, ShouldBeNil)
 
 	refreshAT := rti.GetAccess()
-	So(refreshAT, ShouldNotBeEmpty)
+	c.So(refreshAT, ShouldNotBeEmpty)
 
 	_, err = manager.LoadAccessToken(accessToken)
-	So(err, ShouldNotBeNil)
+	c.So(err, ShouldNotBeNil)
 
 	refreshAInfo, err := manager.LoadAccessToken(refreshAT)
-	So(err, ShouldBeNil)
-	So(refreshAInfo.GetScope(), ShouldEqual, "owner")
+	c.So(err, ShouldBeNil)
+	c.So(refreshAInfo.GetScope(), ShouldEqual, "owner")
 
 	err = manager.RemoveAccessToken(refreshAT)
-	So(err, ShouldBeNil)
+	c.So(err, ShouldBeNil)
 
 	_, err = manager.LoadAccessToken(refreshAT)
-	So(err, ShouldNotBeNil)
+	c.So(err, ShouldNotBeNil)
 
 	err = manager.RemoveRefreshToken(refreshToken)
-	So(err, ShouldBeNil)
+	c.So(err, ShouldBeNil)
 
 	_, err = manager.LoadRefreshToken(refreshToken)
-	So(err, ShouldNotBeNil)
+	c.So(err, ShouldNotBeNil)
 }

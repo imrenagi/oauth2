@@ -291,7 +291,7 @@ func (m *Manager) GenerateAccessToken(gt oauth2.GrantType, tgr *oauth2.TokenGene
 	cli, err := m.GetClient(tgr.ClientID)
 	if err != nil {
 		return
-	} else if m.matchClientSecret(tgr.ClientSecret, cli.GetSecret()) {
+	} else if !m.matchClientSecret(tgr.ClientSecret, cli.GetSecret()) {
 		err = errors.ErrInvalidClient
 		return
 	} else if tgr.RedirectURI != "" {
@@ -400,7 +400,7 @@ func (m *Manager) RefreshAccessToken(tgr *oauth2.TokenGenerateRequest) (accessTo
 	cli, err := m.GetClient(tgr.ClientID)
 	if err != nil {
 		return
-	} else if m.matchClientSecret(tgr.ClientSecret, cli.GetSecret()) {
+	} else if !m.matchClientSecret(tgr.ClientSecret, cli.GetSecret()) {
 		err = errors.ErrInvalidClient
 		return
 	}

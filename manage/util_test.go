@@ -14,5 +14,15 @@ func TestUtil(t *testing.T) {
 			err := manage.DefaultValidateURI("http://www.example.com", "http://www.example.com/cb?code=xxx")
 			So(err, ShouldBeNil)
 		})
+
+		Convey("ValidateSecretMatcher Test True", func() {
+			ok := manage.DefaultMatchClientSecretHandler("aSecret", "aSecret")
+			So(ok, ShouldBeTrue)
+		})
+
+		Convey("ValidateSecretMatcher Test False", func() {
+			ok := manage.DefaultMatchClientSecretHandler("aSecret", "asecret")
+			So(ok, ShouldBeFalse)
+		})
 	})
 }

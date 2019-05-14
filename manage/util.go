@@ -27,3 +27,17 @@ func DefaultValidateURI(baseURI string, redirectURI string) (err error) {
 	}
 	return
 }
+
+type (
+	// MatchClientSecretHandler checks the equality of givenSecret and storedSecret
+	MatchClientSecretHandler func(givenSecret, storedSecret string) (isValid bool)
+)
+
+// DefaultMatchClientSecretHandler validates that givenSecret is the same as storedSecret
+func DefaultMatchClientSecretHandler(givenSecret, storedSecret string) (isValid bool) {
+	if givenSecret == storedSecret {
+		isValid = true
+		return
+	}
+	return
+}

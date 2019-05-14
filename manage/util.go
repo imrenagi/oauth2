@@ -41,3 +41,28 @@ func DefaultMatchClientSecretHandler(givenSecret, storedSecret string) (isValid 
 	}
 	return
 }
+
+// TokenEncryptor uses to encrypt and decrypt the token which will be stored to token store.
+type TokenEncryptor interface {
+	Encrypt(token string) (encryptedToken string, err error)
+	Decrypt(encryptedToken string) (token string, err error)
+}
+
+// NewDefaultTokenEncryptor is just a factory
+func NewDefaultTokenEncryptor() *DefaultTokenEncryptor {
+	return &DefaultTokenEncryptor{}
+}
+
+// DefaultTokenEncryptor implementation of token encryption. It does nothing with the token
+type DefaultTokenEncryptor struct {
+}
+
+// Encrypt encrypts the token
+func (t *DefaultTokenEncryptor) Encrypt(token string) (encryptedToken string, err error) {
+	return token, nil
+}
+
+// Decrypt decrypts the token
+func (t *DefaultTokenEncryptor) Decrypt(encryptedToken string) (token string, err error) {
+	return encryptedToken, nil
+}

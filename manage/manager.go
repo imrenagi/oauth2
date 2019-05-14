@@ -25,6 +25,7 @@ func NewManager() *Manager {
 		gtcfg:             make(map[oauth2.GrantType]*Config),
 		validateURI:       DefaultValidateURI,
 		matchClientSecret: DefaultMatchClientSecretHandler,
+		tokenEncryptor:    NewDefaultTokenEncryptor(),
 	}
 }
 
@@ -35,6 +36,7 @@ type Manager struct {
 	rcfg              *RefreshingConfig
 	validateURI       ValidateURIHandler
 	matchClientSecret MatchClientSecretHandler
+	tokenEncryptor    TokenEncryptor
 	authorizeGenerate oauth2.AuthorizeGenerate
 	accessGenerate    oauth2.AccessGenerate
 	tokenStore        oauth2.TokenStore
@@ -97,6 +99,11 @@ func (m *Manager) SetValidateURIHandler(handler ValidateURIHandler) {
 // SetMatchClientSecretHandler set the validates that the given secret matches the stored secret
 func (m *Manager) SetMatchClientSecretHandler(handler MatchClientSecretHandler) {
 	m.matchClientSecret = handler
+}
+
+// SetTokenEncryptor set the encyptor used to modify and read the token to and from token store
+func (m *Manager) SetTokenEncryptor(encryptor TokenEncryptor) {
+	m.tokenEncryptor = encryptor
 }
 
 // MapAuthorizeGenerate mapping the authorize code generate interface
@@ -217,10 +224,22 @@ func (m *Manager) GenerateAuthToken(rt oauth2.ResponseType, tgr *oauth2.TokenGen
 		}
 	}
 
-	err = m.tokenStore.Create(ti)
-	if err != nil {
-		return
+	if m.tokenEncryptor != nil {
+		encryptedToken := newEncryptedToken(ti, m.tokenEncryptor)
+		err = m.tokenStore.Create(encryptedToken)
+		if err != nil {
+			return
+		}
+	} else {
+		err = m.tokenStore.Create(ti)
+		if err != nil {
+			return
+		}
 	}
+	// err = m.tokenStore.Create(ti)
+	// if err != nil {
+	// 	return
+	// }
 	authToken = ti
 	return
 }
@@ -335,13 +354,45 @@ func (m *Manager) GenerateAccessToken(gt oauth2.GrantType, tgr *oauth2.TokenGene
 		ti.SetRefresh(rv)
 	}
 
-	err = m.tokenStore.Create(ti)
-	if err != nil {
-		return
+	if m.tokenEncryptor != nil {
+		encryptedToken := newEncryptedToken(ti, m.tokenEncryptor)
+		err = m.tokenStore.Create(encryptedToken)
+		if err != nil {
+			return
+		}
+	} else {
+		err = m.tokenStore.Create(ti)
+		if err != nil {
+			return
+		}
 	}
+
 	accessToken = ti
 
 	return
+}
+
+func newEncryptedToken(token oauth2.TokenInfo, encryptor TokenEncryptor) *models.Token {
+
+	access, _ := encryptor.Encrypt(token.GetAccess())
+	refresh, _ := encryptor.Encrypt(token.GetRefresh())
+	//TODO handle error
+
+	return &models.Token{
+		ClientID:         token.GetClientID(),
+		UserID:           token.GetUserID(),
+		RedirectURI:      token.GetRedirectURI(),
+		Scope:            token.GetScope(),
+		Code:             token.GetCode(),
+		CodeCreateAt:     token.GetCodeCreateAt(),
+		CodeExpiresIn:    token.GetCodeExpiresIn(),
+		Access:           access,
+		AccessCreateAt:   token.GetAccessCreateAt(),
+		AccessExpiresIn:  token.GetAccessExpiresIn(),
+		Refresh:          refresh,
+		RefreshCreateAt:  token.GetRefreshCreateAt(),
+		RefreshExpiresIn: token.GetRefreshExpiresIn(),
+	}
 }
 
 // RefreshAccessToken refreshing an access token
@@ -405,10 +456,23 @@ func (m *Manager) RefreshAccessToken(tgr *oauth2.TokenGenerateRequest) (accessTo
 		ti.SetRefresh(rv)
 	}
 
-	if verr := m.tokenStore.Create(ti); verr != nil {
-		err = verr
-		return
+	if m.tokenEncryptor != nil {
+		encryptedToken := newEncryptedToken(ti, m.tokenEncryptor)
+		err = m.tokenStore.Create(encryptedToken)
+		if err != nil {
+			return
+		}
+	} else {
+		err = m.tokenStore.Create(ti)
+		if err != nil {
+			return
+		}
 	}
+
+	// if verr := m.tokenStore.Create(ti); verr != nil {
+	// 	err = verr
+	// 	return
+	// }
 
 	if rcfg.IsRemoveAccess {
 		// remove the old access token
@@ -442,6 +506,16 @@ func (m *Manager) RemoveAccessToken(access string) (err error) {
 		err = errors.ErrInvalidAccessToken
 		return
 	}
+
+	if m.tokenEncryptor != nil {
+		var encryptErr error
+		access, encryptErr = m.tokenEncryptor.Encrypt(access)
+		if encryptErr != nil {
+			err = encryptErr
+			return
+		}
+	}
+
 	err = m.tokenStore.RemoveByAccess(access)
 	return
 }
@@ -452,6 +526,16 @@ func (m *Manager) RemoveRefreshToken(refresh string) (err error) {
 		err = errors.ErrInvalidAccessToken
 		return
 	}
+
+	if m.tokenEncryptor != nil {
+		var encryptErr error
+		refresh, encryptErr = m.tokenEncryptor.Encrypt(refresh)
+		if encryptErr != nil {
+			err = encryptErr
+			return
+		}
+	}
+
 	err = m.tokenStore.RemoveByRefresh(refresh)
 	return
 }
@@ -461,6 +545,15 @@ func (m *Manager) LoadAccessToken(access string) (info oauth2.TokenInfo, err err
 	if access == "" {
 		err = errors.ErrInvalidAccessToken
 		return
+	}
+
+	if m.tokenEncryptor != nil {
+		var encryptErr error
+		access, encryptErr = m.tokenEncryptor.Encrypt(access)
+		if encryptErr != nil {
+			err = encryptErr
+			return
+		}
 	}
 
 	ct := time.Now()
@@ -487,6 +580,15 @@ func (m *Manager) LoadRefreshToken(refresh string) (info oauth2.TokenInfo, err e
 	if refresh == "" {
 		err = errors.ErrInvalidRefreshToken
 		return
+	}
+
+	if m.tokenEncryptor != nil {
+		var encryptErr error
+		refresh, encryptErr = m.tokenEncryptor.Encrypt(refresh)
+		if encryptErr != nil {
+			err = encryptErr
+			return
+		}
 	}
 
 	ti, terr := m.tokenStore.GetByRefresh(refresh)

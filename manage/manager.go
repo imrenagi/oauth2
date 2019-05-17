@@ -22,8 +22,9 @@ func NewDefaultManager() *Manager {
 // NewManager create to authorization management instance
 func NewManager() *Manager {
 	return &Manager{
-		gtcfg:       make(map[oauth2.GrantType]*Config),
-		validateURI: DefaultValidateURI,
+		gtcfg:             make(map[oauth2.GrantType]*Config),
+		validateURI:       DefaultValidateURI,
+		matchClientSecret: DefaultMatchClientSecretHandler,
 	}
 }
 
@@ -33,6 +34,7 @@ type Manager struct {
 	gtcfg             map[oauth2.GrantType]*Config
 	rcfg              *RefreshingConfig
 	validateURI       ValidateURIHandler
+	matchClientSecret MatchClientSecretHandler
 	authorizeGenerate oauth2.AuthorizeGenerate
 	accessGenerate    oauth2.AccessGenerate
 	tokenStore        oauth2.TokenStore
@@ -85,6 +87,11 @@ func (m *Manager) SetClientTokenCfg(cfg *Config) {
 // SetRefreshTokenCfg set the refreshing token config
 func (m *Manager) SetRefreshTokenCfg(cfg *RefreshingConfig) {
 	m.rcfg = cfg
+}
+
+// SetMatchClientSecretHandler set the validates that the given secret matches the stored secret
+func (m *Manager) SetMatchClientSecretHandler(handler MatchClientSecretHandler) {
+	m.matchClientSecret = handler
 }
 
 // SetValidateURIHandler set the validates that RedirectURI is contained in baseURI
@@ -265,7 +272,7 @@ func (m *Manager) GenerateAccessToken(gt oauth2.GrantType, tgr *oauth2.TokenGene
 	cli, err := m.GetClient(tgr.ClientID)
 	if err != nil {
 		return
-	} else if tgr.ClientSecret != cli.GetSecret() {
+	} else if !m.matchClientSecret(tgr.ClientSecret, cli.GetSecret()) {
 		err = errors.ErrInvalidClient
 		return
 	} else if tgr.RedirectURI != "" {
@@ -342,7 +349,7 @@ func (m *Manager) RefreshAccessToken(tgr *oauth2.TokenGenerateRequest) (accessTo
 	cli, err := m.GetClient(tgr.ClientID)
 	if err != nil {
 		return
-	} else if tgr.ClientSecret != cli.GetSecret() {
+	} else if !m.matchClientSecret(tgr.ClientSecret, cli.GetSecret()) {
 		err = errors.ErrInvalidClient
 		return
 	}

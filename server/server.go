@@ -504,6 +504,34 @@ func (s *Server) HandleTokenRequest(w http.ResponseWriter, r *http.Request) (err
 	return
 }
 
+// HandleProviderTokenRequest handles token request when user is already authenticated by auth provider (google, github, fb, etc).
+func (s *Server) HandleProviderTokenRequest(userID string, w http.ResponseWriter, r *http.Request) (err error) {
+
+	gt := oauth2.PasswordCredentials
+	clientID, clientSecret, err := ClientFormHandler(r)
+	if err != nil {
+		return
+	}
+
+	tgr := &oauth2.TokenGenerateRequest{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Request:      r,
+	}
+
+	tgr.Scope = r.FormValue("scope")
+	tgr.UserID = userID
+
+	ti, verr := s.GetAccessToken(gt, tgr)
+	if verr != nil {
+		err = s.tokenError(w, verr)
+		return
+	}
+
+	err = s.token(w, s.GetTokenData(ti), nil)
+	return
+}
+
 // GetErrorData get error response data
 func (s *Server) GetErrorData(err error) (data map[string]interface{}, statusCode int, header http.Header) {
 	re := new(errors.Response)

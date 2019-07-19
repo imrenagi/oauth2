@@ -508,7 +508,7 @@ func (s *Server) HandleTokenRequest(w http.ResponseWriter, r *http.Request) (err
 func (s *Server) HandleProviderTokenRequest(userID string, w http.ResponseWriter, r *http.Request) (err error) {
 
 	gt := oauth2.PasswordCredentials
-	clientID, clientSecret, err := ClientFormHandler(r)
+	clientID, clientSecret, err := ClientBasicHandler(r)
 	if err != nil {
 		return
 	}
